@@ -3,7 +3,8 @@ const express = require("express");
 const ejs = require("ejs");
 const bodyparser = require("body-parser");
 const mongoose = require("mongoose");
-const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 app.set("view engine", "ejs");
@@ -33,31 +34,39 @@ app.get("/login", function(req, res){
 });
 
 app.post("/register", function(req, res){
-    const user = new User({
-        email:req.body.username,
-        password:md5(req.body.password)
-    });
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        const user = new User({
+            email:req.body.username,
+            password:hash
+        });
+    
+        if(user.email==""){
+            res.render("register");
+        }
 
-    user.save().then(function(){
-        res.render("secrets");
+        user.save().then(function(){
+            res.render("secrets");
+        });
     });
 });
 
 app.post("/login", function(req, res){
     const  useremail = req.body.username;
-    const userpassword = md5(req.body.password);
+    const userpassword = req.body.password;
 
     User.findOne({email:useremail}).then(function(data){
         if(data=="" || data==null){
             res.send("you are not yet redistered");
         }
         else{
-            if(data.password===userpassword){
-                res.render("secrets");
-            }
-            else{
-                res.send("incorrect password");
-            }
+            bcrypt.compare(userpassword, data.password, function(err, result) {
+                if(result === true){
+                    res.render("secrets");
+                }
+                else{
+                    res.send("incorrect password");
+                }
+            });
         }
     })
 });
